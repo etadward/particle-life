@@ -239,6 +239,7 @@
                 border-radius: 20px 20px 0 0 !important;
                 padding: 0 20px !important; 
                 z-index: 1000;
+                cursor: pointer; /* 讓點擊在 iOS 上更明確 */
 
                 /* 2. 收合邏輯 (核心魔法) */
                 height: 50px !important;      /* 預設高度：只夠顯示標題 */
@@ -265,12 +266,21 @@
                 opacity: 1 !important;
                 margin: 0 !important;
                 padding-bottom: 30px; /* 底部多一點留白 */
+                
+                /* [修復] 收合時禁用內容的指針事件，防止點擊到隱藏的按鈕 */
+                pointer-events: none; 
+                transition: opacity 0.3s ease;
             }
 
             /* 當有 .mobile-expanded class 時 -> 展開 */
             .control-panel.mobile-expanded {
                 max-height: 480px !important; /* 展開到足夠的高度 */
                 background: rgba(10, 10, 10, 0.98) !important;
+            }
+
+            /* 展開時，恢復內容的指針事件 */
+            .control-panel.mobile-expanded .panel-content {
+                pointer-events: auto;
             }
 
             /* 4. 憑空產生的標題文字 */
@@ -288,6 +298,7 @@
                 margin-bottom: 5px;
                 flex-shrink: 0;
                 opacity: 0.9;
+                pointer-events: none; /* 標題不攔截事件，讓事件傳遞給 panel */
             }
             
             /* 展開時改變箭頭 */
@@ -730,12 +741,21 @@
             panel.addEventListener('click', (e) => {
                 // 只有在手機版寬度下才執行
                 if (window.innerWidth <= 768) {
-                    // 如果點到的是輸入框或 label，不要收合，讓使用者繼續操作
-                    if (e.target.tagName === 'INPUT' || e.target.closest('.checkbox-wrapper')) {
-                        return;
+                    const isCollapsed = !panel.classList.contains('mobile-expanded');
+                    
+                    if (isCollapsed) {
+                        // 如果目前是收合的，任何點擊都視為展開（因為內容是隱藏的）
+                        panel.classList.add('mobile-expanded');
+                    } else {
+                        // 如果已經展開，要判斷是否點擊到控制項
+                        if (e.target.tagName === 'INPUT' || 
+                            e.target.closest('.checkbox-wrapper') || 
+                            e.target.tagName === 'LABEL') {
+                            return; // 讓使用者操作控制項
+                        }
+                        // 點擊空白處或標題則收合
+                        panel.classList.remove('mobile-expanded');
                     }
-                    // 切換展開樣式
-                    panel.classList.toggle('mobile-expanded');
                 }
             });
         }
