@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>互動物理實驗室 V2.1 (Fixed)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>互動物理實驗室 RWD (Responsive Physics Lab)</title>
     <style>
         /* --- 基礎設定 --- */
         body {
@@ -13,10 +13,12 @@
             background-color: #050505;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: #eee;
+            -webkit-tap-highlight-color: transparent; /* 移除手機點擊高亮 */
         }
 
         canvas {
             display: block;
+            touch-action: none; /* 防止滑動 Canvas 時觸發瀏覽器滾動 */
         }
 
         /* --- 提示文字 --- */
@@ -32,42 +34,83 @@
             letter-spacing: 2px;
             text-align: center;
             z-index: 0;
+            width: 80%;
+            transition: top 0.3s ease;
         }
 
         /* --- 控制面板 (Glassmorphism Design) --- */
         .control-panel {
             position: absolute;
+            /* 預設 Desktop 樣式 */
             top: 20px;
             right: 20px;
             width: 300px;
             padding: 20px;
             border-radius: 12px;
             
-            /* 磨砂玻璃效果核心 */
-            background: rgba(20, 20, 20, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            /* 磨砂玻璃效果 */
+            background: rgba(20, 20, 20, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
             
             z-index: 10;
-            transition: opacity 0.3s ease;
+            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
         }
 
+        /* 標題區域與摺疊按鈕 */
         .panel-header {
             font-size: 1.1rem;
             font-weight: 600;
             margin-bottom: 15px;
             color: #fff;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 8px;
+            padding-bottom: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            cursor: pointer; /* 讓標題可點擊以切換 */
+        }
+
+        .toggle-btn {
+            font-size: 0.8rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 內容容器 (用於摺疊) */
+        .panel-content {
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            max-height: 500px; /* 足夠放下所有控制項 */
+            opacity: 1;
+            overflow: hidden;
+        }
+
+        .panel-collapsed .panel-content {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+            padding: 0;
         }
 
         .control-group {
-            margin-bottom: 15px;
+            margin-bottom: 18px; /* 增加間距方便觸控 */
         }
 
         .control-label {
@@ -75,7 +118,7 @@
             justify-content: space-between;
             font-size: 0.85rem;
             color: #ccc;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
 
         .value-display {
@@ -83,22 +126,25 @@
             font-family: monospace;
         }
 
-        /* --- 自訂滑桿樣式 --- */
+        /* --- 自訂滑桿樣式 (加大觸控區) --- */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
             background: transparent;
+            height: 20px; /* 加高軌道感應區 */
+            margin: 5px 0;
         }
 
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
+            height: 20px;
+            width: 20px;
             border-radius: 50%;
             background: #00ff41;
             cursor: pointer;
-            margin-top: -6px;
-            box-shadow: 0 0 10px #00ff41;
+            margin-top: -8px; /* 調整位置 */
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+            border: 2px solid #fff;
         }
 
         input[type=range]::-webkit-slider-runnable-track {
@@ -114,7 +160,7 @@
             -webkit-appearance: none;
             border: none;
             width: 100%;
-            height: 35px;
+            height: 40px;
             cursor: pointer;
             background: none;
             padding: 0;
@@ -122,7 +168,7 @@
         input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type=color]::-webkit-color-swatch {
             border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 6px;
+            border-radius: 8px;
         }
 
         /* --- Checkbox 樣式 --- */
@@ -130,21 +176,23 @@
             display: flex;
             align-items: center;
             cursor: pointer;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            padding: 5px 0; /* 增加點擊區 */
         }
         .checkbox-wrapper input {
             display: none;
         }
         .custom-checkbox {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             border: 2px solid #00ff41;
-            border-radius: 4px;
-            margin-right: 10px;
+            border-radius: 6px;
+            margin-right: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: background 0.2s;
+            flex-shrink: 0;
         }
         .checkbox-wrapper input:checked + .custom-checkbox {
             background: #00ff41;
@@ -153,65 +201,107 @@
             content: '✔';
             font-size: 14px;
             color: #000;
+            font-weight: bold;
         }
         .mode-label {
             color: #00ff41;
             font-weight: bold;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
         }
 
         /* --- 統計數據 --- */
         .stats {
             margin-top: 20px;
-            padding-top: 10px;
+            padding-top: 15px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             font-size: 0.8rem;
             color: #888;
+        }
+
+        /* --- RWD Media Queries --- */
+        
+        /* 平板與手機 (小於 768px) */
+        @media (max-width: 768px) {
+            .hint {
+                top: 40%; /* 往上移一點，避免被底部面板擋住 */
+                font-size: 1.2rem;
+            }
+
+            .control-panel {
+                top: auto;
+                bottom: 0;
+                right: 0;
+                left: 0;
+                width: 100%;
+                border-radius: 20px 20px 0 0; /* 上方圓角 */
+                box-sizing: border-box; /* 確保 padding 不會撐破寬度 */
+                
+                /* 處理 iPhone 底部安全區域 */
+                padding-bottom: calc(20px + env(safe-area-inset-bottom));
+                
+                /* 手機版預設可以稍微縮小或展開，這裡維持展開，但可收合 */
+                transform: translateY(0); 
+            }
+
+            .control-panel.panel-collapsed {
+                /* 收合時只留標題列在底部 */
+                transform: translateY(0); 
+            }
+            
+            /* 在手機上收合時，隱藏內容 */
+            .control-panel.panel-collapsed .panel-content {
+                /* 由於 translateY 不能完全模擬高度變化，這裡配合 max-height */
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="hint">切換模式以體驗重力或群體智慧</div>
+    <div class="hint">切換模式 / 點擊畫面 / 拖曳滑鼠</div>
 
     <!-- 懸浮控制面板 -->
-    <div class="control-panel">
-        <div class="panel-header">
-            物理控制台 V2.1
+    <div class="control-panel" id="panel">
+        <div class="panel-header" id="panel-toggle">
+            <span>物理控制台</span>
+            <button class="toggle-btn" aria-label="Toggle Menu">
+                <span id="toggle-icon">−</span>
+            </button>
         </div>
 
-        <!-- 模式切換 -->
-        <label class="checkbox-wrapper">
-            <input type="checkbox" id="ctrl-flocking">
-            <div class="custom-checkbox"></div>
-            <span class="mode-label">開啟群體模式 (Flocking)</span>
-        </label>
+        <div class="panel-content">
+            <!-- 模式切換 -->
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="ctrl-flocking">
+                <div class="custom-checkbox"></div>
+                <span class="mode-label">開啟群體模式 (Flocking)</span>
+            </label>
 
-        <div class="control-group">
-            <div class="control-label">
-                <span>重力 (Gravity)</span>
-                <span id="val-gravity" class="value-display">0.60</span>
+            <div class="control-group">
+                <div class="control-label">
+                    <span>重力 (Gravity)</span>
+                    <span id="val-gravity" class="value-display">0.60</span>
+                </div>
+                <input type="range" id="ctrl-gravity" min="0" max="1.5" step="0.05" value="0.6">
             </div>
-            <input type="range" id="ctrl-gravity" min="0" max="1.5" step="0.05" value="0.6">
-        </div>
 
-        <div class="control-group">
-            <div class="control-label">
-                <span>消失速度 (Fade Rate)</span>
-                <span id="val-fade" class="value-display">0.050</span>
+            <div class="control-group">
+                <div class="control-label">
+                    <span>消失速度 (Fade Rate)</span>
+                    <span id="val-fade" class="value-display">0.050</span>
+                </div>
+                <input type="range" id="ctrl-fade" min="0.005" max="0.2" step="0.005" value="0.05">
             </div>
-            <input type="range" id="ctrl-fade" min="0.005" max="0.2" step="0.005" value="0.05">
-        </div>
 
-        <div class="control-group">
-            <div class="control-label">
-                <span>粒子顏色</span>
+            <div class="control-group">
+                <div class="control-label">
+                    <span>粒子顏色</span>
+                </div>
+                <input type="color" id="ctrl-color" value="#00ff41">
             </div>
-            <input type="color" id="ctrl-color" value="#00ff41">
-        </div>
 
-        <div class="stats">
-            活躍粒子數: <span id="particle-count" class="value-display">0</span> / <span id="max-limit">∞</span>
+            <div class="stats">
+                活躍粒子數: <span id="particle-count" class="value-display">0</span> / <span id="max-limit">∞</span>
+            </div>
         </div>
     </div>
 
@@ -219,13 +309,17 @@
 
     <script>
         /**
-         * 互動物理實驗室 V2.1 - 修正繪圖缺失問題
+         * 互動物理實驗室 RWD 版
          */
         
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
         // UI 元素
+        const panel = document.getElementById('panel');
+        const panelToggle = document.getElementById('panel-toggle');
+        const toggleIcon = document.getElementById('toggle-icon');
+        
         const ctrlFlocking = document.getElementById('ctrl-flocking');
         const ctrlGravity = document.getElementById('ctrl-gravity');
         const ctrlFade = document.getElementById('ctrl-fade');
@@ -236,8 +330,11 @@
         const maxLimitDisplay = document.getElementById('max-limit');
 
         // 設定畫布尺寸
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
 
         // 全域配置
         const config = {
@@ -246,9 +343,15 @@
             fadeRate: parseFloat(ctrlFade.value),
             color: ctrlColor.value,
             friction: 0.75, 
-            maxParticlesFlocking: 200, // 群體模式下的硬上限
-            mouse: { x: -1000, y: -1000 } // 滑鼠位置
+            maxParticlesFlocking: 150, // 手機效能考量，稍微降低上限
+            mouse: { x: -1000, y: -1000 }
         };
+
+        // 偵測是否為移動裝置 (簡單判斷)
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+            config.maxParticlesFlocking = 100; // 手機版更嚴格的限制
+        }
 
         let particles = [];
 
@@ -256,7 +359,6 @@
             return Math.floor(Math.random() * (max - min + 1) + min);
         }
 
-        // 向量計算輔助
         const Vector = {
             dist: (p1, p2) => Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2),
             normalize: (dx, dy) => {
@@ -267,22 +369,20 @@
         };
 
         /**
-         * 粒子類別 - 整合了物理與行為
+         * 粒子類別
          */
         class Particle {
             constructor(x, y, radius, color, velocityMultiplier = 1) {
                 this.x = x;
                 this.y = y;
                 this.radius = radius;
-                this.originalRadius = radius; // 記住初始大小
+                this.originalRadius = radius;
                 this.color = color;
                 this.alpha = 1;
                 
-                // 速度向量
                 this.dx = randomIntFromRange(-5, 5) * velocityMultiplier;
                 this.dy = randomIntFromRange(-3, 3) * velocityMultiplier; 
                 
-                // Boids 參數
                 this.maxSpeed = 4;
                 this.maxForce = 0.1;
             }
@@ -292,35 +392,28 @@
                 ctx.globalAlpha = this.alpha;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
-                
-                // 發光效果
                 ctx.shadowBlur = 15; 
                 ctx.shadowColor = this.color;
-                
                 ctx.fillStyle = this.color;
                 ctx.fill();
                 ctx.closePath();
                 ctx.restore();
             }
 
-            // Boids: 核心行為運算
             applyBehaviors(particles) {
                 let separateForce = this.separate(particles);
                 let alignForce = this.align(particles);
                 let cohesionForce = this.cohesion(particles);
-                let fleeForce = this.flee(config.mouse); // 躲避滑鼠
+                let fleeForce = this.flee(config.mouse);
 
-                // 權重調整
                 separateForce.x *= 1.5; separateForce.y *= 1.5;
                 alignForce.x *= 1.0;    alignForce.y *= 1.0;
                 cohesionForce.x *= 1.0; cohesionForce.y *= 1.0;
-                fleeForce.x *= 5.0;     fleeForce.y *= 5.0; // 強烈恐懼
+                fleeForce.x *= 5.0;     fleeForce.y *= 5.0;
 
-                // 施加力到加速度 (簡化：直接加到速度)
                 this.dx += separateForce.x + alignForce.x + cohesionForce.x + fleeForce.x;
                 this.dy += separateForce.y + alignForce.y + cohesionForce.y + fleeForce.y;
 
-                // 限制最大速度
                 const speed = Math.sqrt(this.dx*this.dx + this.dy*this.dy);
                 if (speed > this.maxSpeed) {
                     this.dx = (this.dx / speed) * this.maxSpeed;
@@ -328,17 +421,14 @@
                 }
             }
 
-            // Boids: 分離 (Separation)
             separate(particles) {
                 let desiredSeparation = 25;
                 let steer = { x: 0, y: 0 };
                 let count = 0;
-
                 for (let other of particles) {
                     let d = Vector.dist(this, other);
                     if ((d > 0) && (d < desiredSeparation)) {
                         let diff = { x: this.x - other.x, y: this.y - other.y };
-                        // 歸一化
                         const distMag = Math.sqrt(diff.x*diff.x + diff.y*diff.y);
                         if(distMag > 0) {
                             diff.x /= distMag; diff.y /= distMag;
@@ -354,7 +444,6 @@
                 return steer;
             }
 
-            // Boids: 對齊 (Alignment)
             align(particles) {
                 let neighborDist = 50;
                 let sum = { x: 0, y: 0 };
@@ -369,20 +458,17 @@
                 }
                 if (count > 0) {
                     sum.x /= count; sum.y /= count;
-                    // 轉向力 = 期望速度 - 當前速度
                     const mag = Math.sqrt(sum.x*sum.x + sum.y*sum.y);
                     if (mag > 0) {
                          sum.x = (sum.x/mag) * this.maxSpeed;
                          sum.y = (sum.y/mag) * this.maxSpeed;
                     }
                     let steer = { x: sum.x - this.dx, y: sum.y - this.dy };
-                    // 限制轉向力
                     return this.limitForce(steer);
                 }
                 return { x: 0, y: 0 };
             }
 
-            // Boids: 凝聚 (Cohesion)
             cohesion(particles) {
                 let neighborDist = 50;
                 let sum = { x: 0, y: 0 };
@@ -402,7 +488,6 @@
                 return { x: 0, y: 0 };
             }
 
-            // Boids: 尋找目標 (Seek)
             seek(target) {
                 let desired = { x: target.x - this.x, y: target.y - this.y };
                 const d = Math.sqrt(desired.x*desired.x + desired.y*desired.y);
@@ -414,15 +499,12 @@
                 return this.limitForce(steer);
             }
 
-            // 躲避 (Flee) - 用於滑鼠
             flee(target) {
                 let desired = { x: target.x - this.x, y: target.y - this.y };
                 const d = Math.sqrt(desired.x*desired.x + desired.y*desired.y);
-                // 感知半徑 100
                 if (d < 100) {
                     desired.x = (desired.x/d) * this.maxSpeed;
                     desired.y = (desired.y/d) * this.maxSpeed;
-                    // 反向並減去當前速度
                     desired.x *= -1;
                     desired.y *= -1;
                     let steer = { x: desired.x - this.dx, y: desired.y - this.dy };
@@ -442,31 +524,19 @@
 
             update() {
                 if (config.isFlocking) {
-                    // --- 群體模式邏輯 ---
-                    
-                    // 1. 應用 Boids 規則
                     this.applyBehaviors(particles);
-
-                    // 2. 更新位置
                     this.x += this.dx;
                     this.y += this.dy;
 
-                    // 3. 邊界穿梭 (Wrap Around)
                     if (this.x < -this.radius) this.x = canvas.width + this.radius;
                     if (this.y < -this.radius) this.y = canvas.height + this.radius;
                     if (this.x > canvas.width + this.radius) this.x = -this.radius;
                     if (this.y > canvas.height + this.radius) this.y = -this.radius;
 
-                    // 4. 在群體模式下，粒子不會真的「老死」
-                    // 如果太小，讓他慢慢長回來，保持群體可視性
                     if (this.radius < this.originalRadius) {
                         this.radius += 0.05;
                     }
-
                 } else {
-                    // --- 原本的重力模式邏輯 ---
-                    
-                    // 1. 重力
                     if (this.y + this.radius + this.dy > canvas.height) {
                         this.dy = -this.dy * config.friction;
                         this.dx = this.dx * 0.9;
@@ -474,7 +544,6 @@
                         this.dy += config.gravity;
                     }
 
-                    // 2. 邊界反彈
                     if (this.x + this.radius + this.dx > canvas.width || this.x - this.radius <= 0) {
                         this.dx = -this.dx * 0.5;
                     }
@@ -482,50 +551,32 @@
                     this.x += this.dx;
                     this.y += this.dy;
 
-                    // 3. 消失
                     if (this.radius > 0.1) {
                         this.radius -= config.fadeRate;
                         if (this.radius < 0) this.radius = 0;
                     }
                 }
-
-                // *** 關鍵修正：確保每一幀都執行繪圖 ***
                 this.draw();
             }
         }
 
-        /**
-         * 動畫主迴圈
-         */
         function animate() {
             requestAnimationFrame(animate);
-            
-            // 拖尾效果
             ctx.fillStyle = 'rgba(5, 5, 5, 0.3)'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 在群體模式下，維持粒子數量穩定 (Autospawn)
             if (config.isFlocking && particles.length < config.maxParticlesFlocking) {
                 spawnParticles(Math.random() * canvas.width, Math.random() * canvas.height, 1);
             }
 
-            // 更新所有粒子
             for (let i = 0; i < particles.length; i++) {
                 particles[i].update();
                 
-                // 移除條件
                 let shouldRemove = false;
-                
                 if (config.isFlocking) {
-                    // 群體模式：只在超過數量上限時移除最舊的
-                    if (particles.length > config.maxParticlesFlocking) {
-                        shouldRemove = true; 
-                    }
+                    if (particles.length > config.maxParticlesFlocking) shouldRemove = true; 
                 } else {
-                    // 重力模式：太小就移除
-                    if (particles[i].radius <= 0.1) {
-                        shouldRemove = true;
-                    }
+                    if (particles[i].radius <= 0.1) shouldRemove = true;
                 }
 
                 if (shouldRemove) {
@@ -533,86 +584,75 @@
                     i--;
                 }
             }
-
-            // 更新 UI 計數器
             particleCountDisplay.textContent = particles.length;
         }
 
-        /**
-         * 產生粒子的工廠函式
-         */
         function spawnParticles(x, y, count, isExplosion = false) {
-            // 在群體模式下，如果已達上限，不再手動生成 (除非是補員)
             if (config.isFlocking && particles.length >= config.maxParticlesFlocking) return;
 
             for(let i = 0; i < count; i++) {
-                // 再次檢查上限
                 if (config.isFlocking && particles.length >= config.maxParticlesFlocking) break;
-
                 const radius = randomIntFromRange(3, 6);
                 const color = config.color;
                 const velocityMult = isExplosion ? (Math.random() * 3 + 1) : 1;
-                
                 particles.push(new Particle(x, y, radius, color, velocityMult));
             }
         }
 
-        /**
-         * 事件監聽初始化
-         */
         function initEvents() {
-            // 滑鼠追蹤 (給掠食者用)
-            window.addEventListener('mousemove', e => {
-                config.mouse.x = e.clientX;
-                config.mouse.y = e.clientY;
-                // 重力模式下產生粒子
-                if (!config.isFlocking) {
-                    spawnParticles(e.clientX, e.clientY, 3);
-                }
-            });
-
-            window.addEventListener('touchmove', e => {
-                const touch = e.touches[0];
-                config.mouse.x = touch.clientX;
-                config.mouse.y = touch.clientY;
-                if (!config.isFlocking) {
-                    spawnParticles(touch.clientX, touch.clientY, 3);
-                }
-            }, { passive: true });
-
-            // 爆炸/互動
-            canvas.addEventListener('mousedown', e => {
-                if (!config.isFlocking) {
-                    spawnParticles(e.clientX, e.clientY, 60, true);
+            // 滑鼠/觸控事件處理核心
+            const handleInput = (x, y, isClick = false) => {
+                config.mouse.x = x;
+                config.mouse.y = y;
+                
+                if (isClick) {
+                    if (!config.isFlocking) spawnParticles(x, y, 60, true);
                 } else {
-                    // 群體模式點擊：可以在滑鼠位置強制產生驚嚇波(這裡用瞬間產生幾個新同伴代替)
-                    // spawnParticles(e.clientX, e.clientY, 5); 
-                    // 或者不做事，純粹觀察
+                    if (!config.isFlocking) spawnParticles(x, y, 3);
+                }
+            };
+
+            // 1. 滑鼠移動事件 (桌面版)
+            window.addEventListener('mousemove', e => {
+                // 只有當滑鼠不在面板上時才觸發互動
+                if (!e.target.closest('.control-panel')) {
+                    handleInput(e.clientX, e.clientY);
                 }
             });
 
-            // UI: 模式切換
+            // 2. 觸控事件優化 (手機/平板版)
+            const handleTouch = (e) => {
+                // 防止在 Canvas 上滑動時觸發瀏覽器的下拉刷新或捲動
+                if(e.cancelable) e.preventDefault(); 
+                
+                const touch = e.touches[0];
+                handleInput(touch.clientX, touch.clientY);
+            };
+
+            // 新增 touchstart: 手指一接觸螢幕就有反應
+            canvas.addEventListener('touchstart', handleTouch, { passive: false });
+            // touchmove: 手指滑動時持續更新位置
+            canvas.addEventListener('touchmove', handleTouch, { passive: false });
+
+            // 3. 點擊/爆炸事件
+            canvas.addEventListener('mousedown', e => handleInput(e.clientX, e.clientY, true));
+            
+            // 處理面板 UI 事件
             ctrlFlocking.addEventListener('change', (e) => {
                 config.isFlocking = e.target.checked;
-                
                 if (config.isFlocking) {
-                    // 切換到群體模式：
                     maxLimitDisplay.textContent = config.maxParticlesFlocking;
-                    // 清除過多粒子，保留 200 個
                     if (particles.length > config.maxParticlesFlocking) {
                         particles = particles.slice(0, config.maxParticlesFlocking);
                     }
-                    // 讓現有粒子恢復大小，避免看不見
                     particles.forEach(p => {
                         if (p.radius < 2) p.radius = 3;
                     });
                 } else {
-                    // 切換回重力模式：
                     maxLimitDisplay.textContent = "∞";
                 }
             });
 
-            // UI: 其他控制
             ctrlGravity.addEventListener('input', (e) => {
                 config.gravity = parseFloat(e.target.value);
                 valGravity.textContent = config.gravity.toFixed(2);
@@ -627,13 +667,16 @@
                 config.color = e.target.value;
             });
 
-            window.addEventListener('resize', () => {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
+            window.addEventListener('resize', resizeCanvas);
+
+            // 面板摺疊邏輯
+            panelToggle.addEventListener('click', () => {
+                panel.classList.toggle('panel-collapsed');
+                const isCollapsed = panel.classList.contains('panel-collapsed');
+                toggleIcon.textContent = isCollapsed ? '+' : '−';
             });
         }
 
-        // 啟動
         initEvents();
         animate();
 
