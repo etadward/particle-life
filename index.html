@@ -242,7 +242,8 @@
                 cursor: pointer; /* 讓點擊在 iOS 上更明確 */
 
                 /* 2. 收合邏輯 (核心魔法) */
-                height: 50px !important;      /* 預設高度：只夠顯示標題 */
+                /* [修正] 移除強制 height，改用 max-height 控制開合 */
+                /* height: 50px !important;  <-- 原本導致無法展開的主因 */
                 max-height: 50px !important;  
                 overflow: hidden !important; 
                 transition: max-height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), background 0.3s; 
