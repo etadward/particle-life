@@ -38,10 +38,9 @@
             transition: top 0.3s ease;
         }
 
-        /* --- 控制面板 (Glassmorphism Design) --- */
+        /* --- 控制面板 (Desktop 預設樣式) --- */
         .control-panel {
             position: absolute;
-            /* 預設 Desktop 樣式 */
             top: 20px;
             right: 20px;
             width: 300px;
@@ -218,39 +217,89 @@
             color: #888;
         }
 
-        /* --- RWD Media Queries --- */
-        
-        /* 平板與手機 (小於 768px) */
-        @media (max-width: 768px) {
+        /* --- RWD 手機版 + 自動收合特效 --- */
+        @media screen and (max-width: 768px) {
             .hint {
-                top: 40%; /* 往上移一點，避免被底部面板擋住 */
+                top: 30%; /* 避免被底部面板擋住 */
                 font-size: 1.2rem;
             }
 
             .control-panel {
-                top: auto;
-                bottom: 0;
-                right: 0;
-                left: 0;
-                width: 100%;
-                border-radius: 20px 20px 0 0; /* 上方圓角 */
-                box-sizing: border-box; /* 確保 padding 不會撐破寬度 */
+                /* 1. 定位與外觀基礎 */
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                top: auto !important;
+                width: 100% !important;
+                max-width: none !important;
                 
-                /* 處理 iPhone 底部安全區域 */
-                padding-bottom: calc(20px + env(safe-area-inset-bottom));
+                background: rgba(10, 10, 10, 0.95) !important; /* 背景深一點 */
+                backdrop-filter: blur(12px);
+                border-radius: 20px 20px 0 0 !important;
+                padding: 0 20px !important; 
+                z-index: 1000;
+
+                /* 2. 收合邏輯 (核心魔法) */
+                height: 50px !important;      /* 預設高度：只夠顯示標題 */
+                max-height: 50px !important;  
+                overflow: hidden !important; 
+                transition: max-height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), background 0.3s; 
                 
-                /* 手機版預設可以稍微縮小或展開，這裡維持展開，但可收合 */
-                transform: translateY(0); 
+                /* 3. 排版 */
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+                gap: 15px;
+                transform: none !important; /* 確保不被 JS 狀態影響 */
             }
 
-            .control-panel.panel-collapsed {
-                /* 收合時只留標題列在底部 */
-                transform: translateY(0); 
+            /* 隱藏原本的 Desktop 標題列，改用 CSS 生成 */
+            .panel-header {
+                display: none !important;
+            }
+
+            /* 確保內容區域總是顯示 (由父層 height 控制裁切) */
+            .panel-content {
+                max-height: none !important;
+                opacity: 1 !important;
+                margin: 0 !important;
+                padding-bottom: 30px; /* 底部多一點留白 */
+            }
+
+            /* 當手指點擊或滑鼠滑過時 -> 展開 */
+            .control-panel:hover, .control-panel:active {
+                max-height: 480px !important; /* 展開到足夠的高度 */
+                background: rgba(10, 10, 10, 0.98) !important;
+            }
+
+            /* 4. 憑空產生的標題文字 */
+            .control-panel::before {
+                content: "物理控制台 ▴"; 
+                color: #00ff41; /* 霓虹綠 */
+                font-family: 'Segoe UI', sans-serif;
+                font-weight: bold;
+                font-size: 16px;
+                text-align: center;
+                
+                display: block;
+                width: 100%;
+                margin-top: 15px;     
+                margin-bottom: 5px;
+                flex-shrink: 0;
+                opacity: 0.9;
             }
             
-            /* 在手機上收合時，隱藏內容 */
-            .control-panel.panel-collapsed .panel-content {
-                /* 由於 translateY 不能完全模擬高度變化，這裡配合 max-height */
+            /* 展開時改變箭頭 */
+            .control-panel:hover::before, .control-panel:active::before {
+                content: "物理控制台 ▾";
+                color: #fff;
+            }
+
+            /* 優化滑桿觸控區 */
+            input[type=range] {
+                margin-top: 5px;
+                height: 30px;
             }
         }
     </style>
@@ -669,8 +718,9 @@
 
             window.addEventListener('resize', resizeCanvas);
 
-            // 面板摺疊邏輯
+            // 面板摺疊邏輯 (Desktop 保留點擊摺疊，手機版由 hover/active 處理)
             panelToggle.addEventListener('click', () => {
+                // 在手機版上隱藏了 toggle-btn，所以這段只會對 Desktop 生效
                 panel.classList.toggle('panel-collapsed');
                 const isCollapsed = panel.classList.contains('panel-collapsed');
                 toggleIcon.textContent = isCollapsed ? '+' : '−';
