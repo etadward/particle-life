@@ -267,8 +267,8 @@
                 padding-bottom: 30px; /* 底部多一點留白 */
             }
 
-            /* 當手指點擊或滑鼠滑過時 -> 展開 */
-            .control-panel:hover, .control-panel:active {
+            /* 當有 .mobile-expanded class 時 -> 展開 */
+            .control-panel.mobile-expanded {
                 max-height: 480px !important; /* 展開到足夠的高度 */
                 background: rgba(10, 10, 10, 0.98) !important;
             }
@@ -291,7 +291,7 @@
             }
             
             /* 展開時改變箭頭 */
-            .control-panel:hover::before, .control-panel:active::before {
+            .control-panel.mobile-expanded::before {
                 content: "物理控制台 ▾";
                 color: #fff;
             }
@@ -718,12 +718,25 @@
 
             window.addEventListener('resize', resizeCanvas);
 
-            // 面板摺疊邏輯 (Desktop 保留點擊摺疊，手機版由 hover/active 處理)
+            // 面板摺疊邏輯 (Desktop 保留點擊摺疊，手機版由 JS click 事件處理)
             panelToggle.addEventListener('click', () => {
                 // 在手機版上隱藏了 toggle-btn，所以這段只會對 Desktop 生效
                 panel.classList.toggle('panel-collapsed');
                 const isCollapsed = panel.classList.contains('panel-collapsed');
                 toggleIcon.textContent = isCollapsed ? '+' : '−';
+            });
+
+            // 手機版專屬：點擊面板本身來切換展開狀態
+            panel.addEventListener('click', (e) => {
+                // 只有在手機版寬度下才執行
+                if (window.innerWidth <= 768) {
+                    // 如果點到的是輸入框或 label，不要收合，讓使用者繼續操作
+                    if (e.target.tagName === 'INPUT' || e.target.closest('.checkbox-wrapper')) {
+                        return;
+                    }
+                    // 切換展開樣式
+                    panel.classList.toggle('mobile-expanded');
+                }
             });
         }
 
